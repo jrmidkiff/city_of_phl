@@ -9,6 +9,9 @@ from passyunk.parser import PassyunkParser
 
 ###### Function
 def get_data(url, params, data_designation):
+    '''
+    Generic function called by get_opa() and get_dor()
+    '''
     r = requests.get(url, params=params)
     if r.status_code != 200:
         raise Exception(f'Status Code: {r.status_code} - Reason: {r.reason}')
@@ -24,15 +27,18 @@ def get_data(url, params, data_designation):
 
 ##### OPA
 def get_opa():
+    '''
+    Gets and wrangles OPA data
+    '''
     OPA_URL = 'https://phl.carto.com/api/v2/sql'
     opa_params = {'q':
-    '''
-    SELECT ST_AsText(the_geom) AS the_geom_text, ST_Y(the_geom) AS lat, ST_X(the_geom) AS lng, 
-        pin, category_code, location, unit, house_number, street_code, 
-        street_designation, street_direction, street_name, suffix, zip_code, 
-        building_code, building_code_description
-    FROM opa_properties_public
-    '''}
+        '''
+        SELECT ST_AsText(the_geom) AS the_geom_text, ST_Y(the_geom) AS lat, ST_X(the_geom) AS lng, 
+            pin, category_code, location, unit, house_number, street_code, 
+            street_designation, street_direction, street_name, suffix, zip_code, 
+            building_code, building_code_description
+        FROM opa_properties_public
+        '''}
     print('\nGathering OPA Records')
     start = time.time()
     opa = get_data(OPA_URL, opa_params, 'rows')
@@ -53,6 +59,9 @@ def get_opa():
 ##### DOR
 # It looks like DOR API is limited to 2000 records per pull
 def get_dor(): 
+    '''
+    Gets and wrangles DOR data
+    '''
     DOR_URL = 'https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/DOR_Parcel/FeatureServer/0/query'
     print('Gathering DOR Records')
     x = -1
@@ -98,6 +107,9 @@ def get_dor():
     return dor 
 
 def merge_percentage(opa_slice, dor_slice, return_joined=False): 
+    '''
+    Generic function for joining OPA and DOR data
+    '''
     if dor_slice.name == opa_slice.name: 
         dor_slice.name = dor_slice.name + '_dor'
     joined = pd.merge(
@@ -113,6 +125,9 @@ def merge_percentage(opa_slice, dor_slice, return_joined=False):
     return str(matched / initial)
 
 def parse(opa, dor, p): 
+    '''
+    Function for parsing OPA and DOR
+    '''
     for df in [opa, dor]: 
         if df.index.duplicated().any(): 
             raise IndexError(f'{df.index.name} indices not unique')
