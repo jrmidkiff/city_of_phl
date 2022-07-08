@@ -1,0 +1,4 @@
+python_version >= "3.9"
+pandas>=1.4.0
+passyunk @ git+https://github.com/CityOfPhiladelphia/passyunk@5ede01660c26cf381530bfdb3ebd6b382abba387
+requests
