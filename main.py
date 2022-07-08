@@ -1,5 +1,5 @@
 # Author: James Midkiff
-# 3 July 2022
+# 8 July 2022
 
 import requests
 import json
@@ -33,12 +33,12 @@ def get_opa():
         building_code, building_code_description
     FROM opa_properties_public
     '''}
-
+    print('\nGathering OPA Records')
     start = time.time()
     opa = get_data(OPA_URL, opa_params, 'rows')
     end = time.time()
     print(f'OPA: {opa.shape[0]} rows, {opa.shape[1]} columns')
-    print(f'Full OPA API pull required {round(end - start, 0)} seconds')
+    print(f'Full OPA API pull required {round(end - start, 0)} seconds\n')
 
     opa['pin'] = opa['pin'].astype(str)
     opa['unit'] = opa['unit'].fillna('').str.strip()
@@ -54,7 +54,7 @@ def get_opa():
 # It looks like DOR API is limited to 2000 records per pull
 def get_dor(): 
     DOR_URL = 'https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/DOR_Parcel/FeatureServer/0/query'
-
+    print('Gathering DOR Records')
     x = -1
     dor = pd.DataFrame()
     start = time.time()
@@ -69,7 +69,7 @@ def get_dor():
             break
         dor = pd.concat([dor, dor_append], ignore_index=True)
         x = dor['attributes.OBJECTID'].max()
-        print(f'objectid: {x}')
+        print(f'    Record Number: {x}')
     end = time.time()
 
     dor.columns = dor.columns.str.removeprefix('attributes.')
@@ -103,7 +103,7 @@ def merge_percentage(opa_slice, dor_slice, return_joined=False):
     joined = pd.merge(
         left=opa_slice, right=dor_slice, how='left', 
         left_on=opa_slice.name, right_on=dor_slice.name)
-    joined = joined.drop_duplicates(keep='first') # Only DOR has duplicates
+    joined = joined.drop_duplicates(keep='first') # Only DOR has PIN duplicates
     
     if return_joined: 
         return joined
@@ -117,7 +117,7 @@ def parse(opa, dor, p):
         if df.index.duplicated().any(): 
             raise IndexError(f'{df.index.name} indices not unique')
         addr_output, addr_base = [], []
-        print(f'Parsing {df.index.name} Addresses')
+        print(f'\nParsing {df.index.name} Addresses')
         for tup in df['ADDR_JRM'].iteritems(): 
             parsed = p.parse(tup[1])
             addr_output.append(parsed['components']['output_address'])
@@ -152,26 +152,25 @@ def q3(opa, dor):
         .merge(right=dor['PIN'], how='left', left_on='pin', right_on='PIN')
         .drop_duplicates(keep='first')
         .rename(columns={'PIN': 'MATCH_DOR'})
-        .merge(right=resid_condos['pin'], how='left', left_on='pin', right_on='pin'))
+        .merge(
+            right=resid_condos['pin'].rename('CONDO_JRM'), 
+            how='left', left_on='pin', right_on='CONDO_JRM'))
 
-    joined = merge_percentage(
-        opa['pin'], dor['PIN'], return_joined=True)
-    not_matched = joined[joined['PIN'].isnull()]['pin'].rename('NOT_MATCHED_DOR')
-    opa = opa.merge(not_matched, how='left', left_on='pin', right_on='NOT_MATCHED_DOR')
-    opa_not_matched = opa[~opa['NOT_MATCHED_DOR'].isnull()]
-    opa_not_matched[opa_not_matched.duplicated(subset=['lat', 'lng'], keep=False)].sort_values('lat')
+    non_matched_condos = opa[opa['MATCH_DOR'].isnull() & ~opa['CONDO_JRM'].isnull()].shape[0]
+    return non_matched_condos
 
 if __name__ == '__main__': 
+    start = time.time()
     opa = get_opa()
     dor = get_dor()
     p = PassyunkParser()
     opa, dor = parse(opa, dor, p)
     with open('answers.csv', 'w') as f: 
-        f.write(f'1,Percent of OPA Parcels Aligned with DOR by PIN,{q1(opa, dor)}')
-        f.write(f'2a,Percent of OPA Parcels Aligned with DOR by Concatenated Address,{q2a(opa, dor)}')
-        f.write(f'2b,Percent of OPA Parcels Aligned with DOR by Full Address,{q2b(opa, dor)}')
-        f.write(f'2c,Percent of OPA Parcels Aligned with DOR by Base Address,{q2c(opa, dor)}')
-        f.write(f'3,Percent of OPA Parcels Not Aligned with DOR by Pin (Condos),{q3(opa, dor)}')
-
-        
-
+        f.write(f'1,Percent of OPA Parcels Aligned with DOR by PIN,{q1(opa, dor)}\n')
+        f.write(f'2a,Percent of OPA Parcels Aligned with DOR by Concatenated Address,{q2a(opa, dor)}\n')
+        f.write(f'2b,Percent of OPA Parcels Aligned with DOR by Full Address,{q2b(opa, dor)}\n')
+        f.write(f'2c,Percent of OPA Parcels Aligned with DOR by Base Address,{q2c(opa, dor)}\n')
+        f.write(f'3,Number of OPA Parcels Not Aligned with DOR by Pin (Condos),{q3(opa, dor)}\n')
+    end = time.time()
+    print("\nTask Complete - Answers written to 'answers.csv'")
+    print(f'Time Required: {round(end-start, 0)} seconds')

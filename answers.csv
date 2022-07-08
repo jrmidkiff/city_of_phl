@@ -1,1 +1,5 @@
-0.9035077468758163
+1,Percent of OPA Parcels Aligned with DOR by PIN,0.9029175767803714
+2a,Percent of OPA Parcels Aligned with DOR by Concatenated Address,0.8743381446913232
+2b,Percent of OPA Parcels Aligned with DOR by Full Address,0.8886691058573228
+2c,Percent of OPA Parcels Aligned with DOR by Base Address,0.8924945908741732
+3,Number of OPA Parcels Not Aligned with DOR by Pin (Condos),33157
